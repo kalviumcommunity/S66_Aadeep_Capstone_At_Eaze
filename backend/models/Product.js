@@ -79,4 +79,23 @@ productSchema.pre("save", function (next) {
   next();
 });
 
+productSchema.statics.recalculateAverageRating = async function (productId) {
+  const product = await this.findById(productId);
+  if (!product) return;
+  if (product.ratings.length > 0) {
+    product.averageRating =
+      product.ratings.reduce((acc, item) => acc + item.rating, 0) /
+      product.ratings.length;
+  } else {
+    product.averageRating = 0;
+  }
+  await product.save();
+};
+
+productSchema.post(["findOneAndUpdate", "updateOne"], async function (doc) {
+  if (doc && doc._id) {
+    await doc.constructor.recalculateAverageRating(doc._id);
+  }
+});
+
 module.exports = mongoose.model("Product", productSchema);
