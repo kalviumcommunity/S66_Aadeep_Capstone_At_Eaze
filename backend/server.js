@@ -16,9 +16,20 @@ app.use(express.urlencoded({ extended: true }));
 
 // Database connection
 mongoose
-  .connect(process.env.MONGODB_URI)
+  .connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 10000, // 10 seconds
+    socketTimeoutMS: 45000, // 45 seconds
+    maxPoolSize: 10,
+    autoReconnect: true,
+    retryWrites: true,
+  })
   .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+    process.exit(1);
+  });
 
 // Routes
 app.use("/api/products", require("./routes/products"));
