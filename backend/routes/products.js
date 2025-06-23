@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { body, validationResult } = require("express-validator");
+const { body, validationResult, param } = require("express-validator");
 const Product = require("../models/Product");
 const { protect, authorize } = require("../middleware/auth");
 
@@ -47,20 +47,28 @@ router.get("/", async (req, res) => {
 });
 
 // Get single product
-router.get("/:id", async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id)
-      .populate("vendor", "name vendorDetails.shopName")
-      .populate("ratings.user", "name");
-
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+router.get(
+  "/:id",
+  [param("id").isMongoId().withMessage("Invalid product ID")],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
+    try {
+      const product = await Product.findById(req.params.id)
+        .populate("vendor", "name vendorDetails.shopName")
+        .populate("ratings.user", "name");
 
-    res.json(product);
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
+);
 
 module.exports = router;
