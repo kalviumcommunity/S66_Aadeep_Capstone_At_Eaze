@@ -16,7 +16,10 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: function () {
+      // Password is only required for non-OAuth users
+      return !this.googleId;
+    },
     minlength: 6,
   },
   role: {
@@ -46,7 +49,8 @@ const userSchema = new mongoose.Schema({
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  // Only hash password if it exists and has been modified
+  if (!this.isModified("password") || !this.password) return next();
 
   try {
     const salt = await bcrypt.genSalt(10);
@@ -59,6 +63,8 @@ userSchema.pre("save", async function (next) {
 
 // Method to compare password
 userSchema.methods.comparePassword = async function (candidatePassword) {
+  // If user has no password (OAuth user), return false
+  if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 
