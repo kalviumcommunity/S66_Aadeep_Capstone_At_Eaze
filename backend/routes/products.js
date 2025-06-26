@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { body, validationResult, param } = require("express-validator");
 const Product = require("../models/Product");
-const { protect, authorize } = require("../middleware/auth");
+const { protect, authorize } = require("../middlewares/auth");
 
 // Get all products
 router.get("/", async (req, res) => {
