@@ -6,6 +6,19 @@ const dotenv = require("dotenv");
 // Load environment variables
 dotenv.config();
 
+// Validate required environment variables
+if (!process.env.JWT_SECRET) {
+  console.error("ERROR: JWT_SECRET environment variable is not set!");
+  console.error("Please set JWT_SECRET in your .env file");
+  process.exit(1);
+}
+
+if (!process.env.GOOGLE_CLIENT_ID) {
+  console.error("ERROR: GOOGLE_CLIENT_ID environment variable is not set!");
+  console.error("Please set GOOGLE_CLIENT_ID in your .env file");
+  process.exit(1);
+}
+
 // Create Express app
 const app = express();
 
@@ -32,7 +45,10 @@ mongoose
   });
 
 // Routes
+app.use("/api/auth", require("./routes/auth"));
 app.use("/api/products", require("./routes/products"));
+app.use("/api/orders", require("./routes/orders"));
+app.use("/api/vendors", require("./routes/vendors"));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
