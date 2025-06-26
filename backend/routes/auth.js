@@ -4,7 +4,7 @@ const { body, validationResult } = require("express-validator");
 const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
-const { protect } = require("../middleware/auth");
+const { protect } = require("../middlewares/auth");
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -121,7 +121,6 @@ router.post("/google", async (req, res) => {
         name,
         email,
         googleId,
-        password: Math.random().toString(36).slice(-8),
       });
       await user.save();
     }
