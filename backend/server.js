@@ -19,6 +19,14 @@ if (!process.env.GOOGLE_CLIENT_ID) {
   process.exit(1);
 }
 
+if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+  console.error("ERROR: Razorpay environment variables are not set!");
+  console.error(
+    "Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your .env file"
+  );
+  process.exit(1);
+}
+
 // Create Express app
 const app = express();
 
