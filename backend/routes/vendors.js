@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const { body, validationResult } = require("express-validator");
 const User = require("../models/User");
+const Product = require("../models/Product");
+const Order = require("../models/Order");
 const { protect, authorize } = require("../middlewares/auth");
 
 // Get vendor profile
@@ -55,7 +57,17 @@ router.put(
       }
 
       await vendor.save();
-      res.json(vendor);
+
+      // Filter the response to avoid leaking sensitive data
+      const vendorData = {
+        _id: vendor._id,
+        name: vendor.name,
+        email: vendor.email,
+        isVendor: vendor.isVendor,
+        vendorDetails: vendor.vendorDetails,
+      };
+
+      res.json(vendorData);
     } catch (error) {
       res.status(500).json({ message: "Server error" });
     }
@@ -114,11 +126,13 @@ router.get("/stats", [protect, authorize("vendor")], async (req, res) => {
 // Get vendor products
 router.get("/products", [protect, authorize("vendor")], async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+
     const products = await Product.find({ vendor: req.user.id })
       .sort("-createdAt")
       .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+      .limit(limit);
 
     const total = await Product.countDocuments({ vendor: req.user.id });
 
@@ -135,7 +149,9 @@ router.get("/products", [protect, authorize("vendor")], async (req, res) => {
 // Get vendor orders
 router.get("/orders", [protect, authorize("vendor")], async (req, res) => {
   try {
-    const { page = 1, limit = 10, status } = req.query;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const { status } = req.query;
     const query = { "items.vendor": req.user.id };
 
     if (status) {
@@ -147,7 +163,7 @@ router.get("/orders", [protect, authorize("vendor")], async (req, res) => {
       .populate("items.product", "name price")
       .sort("-createdAt")
       .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+      .limit(limit);
 
     const total = await Order.countDocuments(query);
 
