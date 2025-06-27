@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { body, validationResult } = require("express-validator");
+const mongoose = require("mongoose");
 const Product = require("../models/Product");
 const { protect, authorize } = require("../middlewares/auth");
 
@@ -49,6 +50,9 @@ router.get("/", async (req, res) => {
 // Get single product
 router.get("/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ message: "Product not found" });
+    }
     const product = await Product.findById(req.params.id)
       .populate("vendor", "name vendorDetails.shopName")
       .populate("ratings.user", "name");
@@ -155,6 +159,10 @@ router.put(
         return res.status(400).json({ errors: errors.array() });
       }
 
+      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
       const product = await Product.findById(req.params.id);
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
@@ -166,7 +174,15 @@ router.put(
           .json({ message: "Not authorized to update this product" });
       }
 
-      Object.assign(product, req.body);
+      // Whitelist fields to prevent mass assignment
+      const { name, description, price, category, stock, images } = req.body;
+      if (name) product.name = name;
+      if (description) product.description = description;
+      if (price) product.price = price;
+      if (category) product.category = category;
+      if (stock) product.stock = stock;
+      if (images) product.images = images;
+
       await product.save();
 
       res.json(product);
@@ -179,6 +195,9 @@ router.put(
 // Delete product (vendor only)
 router.delete("/:id", [protect, authorize("vendor")], async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ message: "Product not found" });
+    }
     const product = await Product.findById(req.params.id);
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
@@ -214,6 +233,10 @@ router.post(
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(404).json({ message: "Product not found" });
       }
 
       const product = await Product.findById(req.params.id);
