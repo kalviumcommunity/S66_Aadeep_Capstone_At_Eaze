@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { body, validationResult } = require("express-validator");
+const crypto = require("crypto");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 const Razorpay = require("razorpay");
@@ -90,60 +91,73 @@ router.post(
 
       const { items, shippingAddress } = req.body;
 
-      // Calculate total amount and validate products
-      let totalAmount = 0;
-      const orderItems = [];
+      // Wrap order creation in a try-catch block for rollback
+      let newOrder;
+      try {
+        // Calculate total amount and validate products
+        let totalAmount = 0;
+        const orderItems = [];
 
-      for (const item of items) {
-        const product = await Product.findById(item.product);
-        if (!product || !product.isActive) {
-          return res
-            .status(400)
-            .json({ message: `Product ${item.product} not found or inactive` });
+        for (const item of items) {
+          const product = await Product.findById(item.product);
+          if (!product || !product.isActive) {
+            return res.status(400).json({
+              message: `Product with ID ${item.product} not found or is inactive.`,
+            });
+          }
+
+          if (product.stock < item.quantity) {
+            return res
+              .status(400)
+              .json({ message: `Insufficient stock for ${product.name}` });
+          }
+
+          totalAmount += product.price * item.quantity;
+          orderItems.push({
+            product: product._id,
+            quantity: item.quantity,
+            price: product.price,
+            vendor: product.vendor,
+          });
         }
 
-        if (product.stock < item.quantity) {
-          return res
-            .status(400)
-            .json({ message: `Insufficient stock for ${product.name}` });
-        }
-
-        totalAmount += product.price * item.quantity;
-        orderItems.push({
-          product: product._id,
-          quantity: item.quantity,
-          price: product.price,
-          vendor: product.vendor,
+        // Create Razorpay order before creating our own
+        const razorpayOrder = await razorpay.orders.create({
+          amount: totalAmount * 100, // Razorpay expects amount in paise
+          currency: "INR",
+          receipt: `receipt_order_${Date.now()}`,
         });
 
-        // Update stock
-        product.stock -= item.quantity;
-        await product.save();
+        newOrder = new Order({
+          user: req.user.id,
+          items: orderItems,
+          shippingAddress,
+          totalAmount,
+          razorpayOrderId: razorpayOrder.id,
+        });
+
+        await newOrder.save();
+
+        // After order is successfully created, update stock
+        for (const item of newOrder.items) {
+          await Product.updateOne(
+            { _id: item.product },
+            { $inc: { stock: -item.quantity } }
+          );
+        }
+
+        res.status(201).json({
+          order: newOrder,
+          razorpayOrder,
+        });
+      } catch (error) {
+        // If anything fails, rollback the order if it was created
+        if (newOrder && newOrder._id) {
+          await Order.findByIdAndDelete(newOrder._id);
+        }
+        console.error("ORDER_CREATION_ERROR:", error);
+        res.status(500).json({ message: "Failed to create order. Please try again." });
       }
-
-      // Create Razorpay order
-      const razorpayOrder = await razorpay.orders.create({
-        amount: totalAmount * 100, // Razorpay expects amount in paise
-        currency: "INR",
-        receipt: `order_${Date.now()}`,
-      });
-
-      const order = new Order({
-        user: req.user.id,
-        items: orderItems,
-        shippingAddress,
-        totalAmount,
-        razorpayOrderId: razorpayOrder.id,
-      });
-
-      await order.save();
-
-      res.status(201).json({
-        order,
-        razorpayOrder,
-      });
-    } catch (error) {
-      res.status(500).json({ message: "Server error" });
     }
   }
 );
@@ -225,7 +239,8 @@ router.post(
         .digest("hex");
 
       if (generated_signature !== razorpay_signature) {
-        return res.status(400).json({ message: "Invalid signature" });
+        // Generic error message for security
+        return res.status(400).json({ message: "Payment verification failed." });
       }
 
       order.paymentInfo = {
@@ -241,7 +256,8 @@ router.post(
 
       res.json({ message: "Payment verified successfully" });
     } catch (error) {
-      res.status(500).json({ message: "Server error" });
+      console.error("PAYMENT_VERIFICATION_ERROR:", error);
+      res.status(500).json({ message: "An error occurred during payment verification." });
     }
   }
 );
