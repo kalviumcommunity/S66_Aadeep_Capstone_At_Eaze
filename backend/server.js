@@ -43,7 +43,6 @@ mongoose
     serverSelectionTimeoutMS: 10000, // 10 seconds
     socketTimeoutMS: 45000, // 45 seconds
     maxPoolSize: 10,
-    autoReconnect: true,
     retryWrites: true,
   })
   .then(() => console.log("Connected to MongoDB"))

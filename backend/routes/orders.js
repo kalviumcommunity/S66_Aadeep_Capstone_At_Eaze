@@ -156,8 +156,13 @@ router.post(
           await Order.findByIdAndDelete(newOrder._id);
         }
         console.error("ORDER_CREATION_ERROR:", error);
-        res.status(500).json({ message: "Failed to create order. Please try again." });
+        res
+          .status(500)
+          .json({ message: "Failed to create order. Please try again." });
       }
+    } catch (error) {
+      console.error("OUTER_ORDER_ERROR:", error);
+      res.status(500).json({ message: "Server error" });
     }
   }
 );
@@ -240,7 +245,9 @@ router.post(
 
       if (generated_signature !== razorpay_signature) {
         // Generic error message for security
-        return res.status(400).json({ message: "Payment verification failed." });
+        return res
+          .status(400)
+          .json({ message: "Payment verification failed." });
       }
 
       order.paymentInfo = {
@@ -257,7 +264,9 @@ router.post(
       res.json({ message: "Payment verified successfully" });
     } catch (error) {
       console.error("PAYMENT_VERIFICATION_ERROR:", error);
-      res.status(500).json({ message: "An error occurred during payment verification." });
+      res
+        .status(500)
+        .json({ message: "An error occurred during payment verification." });
     }
   }
 );
