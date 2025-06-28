@@ -37,6 +37,15 @@ Many artisans face challenges in selling handmade products online due to high pl
 
 ---
 
+## 🚀 Live Deployment
+
+| Service   | URL                                       |
+| --------- | ----------------------------------------- |
+| **Backend API** | https://at-eaze-backend.onrender.com/ |
+| **Frontend**    | _Coming Soon_                        |
+
+---
+
 ## ⛔ Challenges
 
 * Handling multi-vendor complexity (individual dashboards, unique products, independent transactions).
