@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const path = require("path");
 
 // Load environment variables
 dotenv.config();
@@ -35,6 +36,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from uploads directory
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 // Database connection
 mongoose
   .connect(process.env.MONGODB_URI, {
@@ -56,6 +60,7 @@ app.use("/api/auth", require("./routes/auth"));
 app.use("/api/products", require("./routes/products"));
 app.use("/api/orders", require("./routes/orders"));
 app.use("/api/vendors", require("./routes/vendors"));
+app.use("/api/upload", require("./routes/upload"));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
