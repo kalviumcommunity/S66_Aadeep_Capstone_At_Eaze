@@ -42,7 +42,7 @@ Many artisans face challenges in selling handmade products online due to high pl
 | Service   | URL                                       |
 | --------- | ----------------------------------------- |
 | **Backend API** | https://at-eaze-backend.onrender.com/ |
-| **Frontend**    | _Coming Soon_                        |
+| **Frontend**    | https://phenomenal-dasik-b2f4f8.netlify.app/ |
 
 ---
 
