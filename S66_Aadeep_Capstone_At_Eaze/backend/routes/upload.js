@@ -1,83 +1,119 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+const cloudinary = require("cloudinary").v2;
 const { protect } = require("../middlewares/auth");
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, "../uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    // Generate unique filename with timestamp
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
-    );
-  },
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// File filter to only allow images
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith("image/")) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only image files are allowed"), false);
-  }
-};
-
+// Configure multer for memory storage (no local files)
 const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed"), false);
+    }
+  },
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
 });
 
-// Single file upload
-router.post("/", protect, upload.single("file"), (req, res) => {
+// Single file upload to Cloudinary
+router.post("/", protect, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // Return the file URL
-    const fileUrl = `/uploads/${req.file.filename}`;
+    // Convert buffer to base64
+    const b64 = Buffer.from(req.file.buffer).toString("base64");
+    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(dataURI, {
+      folder: "at-eaze",
+      resource_type: "auto",
+      transformation: [
+        { width: 800, height: 600, crop: "limit" }, // Resize for optimization
+        { quality: "auto" }, // Auto optimize quality
+      ],
+    });
+
     res.json({
       message: "File uploaded successfully",
-      url: fileUrl,
-      filename: req.file.filename,
+      url: result.secure_url,
+      public_id: result.public_id,
+      filename: req.file.originalname,
     });
   } catch (error) {
-    res.status(500).json({ message: "Error uploading file" });
+    console.error("Cloudinary upload error:", error);
+    res.status(500).json({ message: "Error uploading file to cloud" });
   }
 });
 
-// Multiple files upload
-router.post("/multiple", protect, upload.array("files", 5), (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: "No files uploaded" });
-    }
+// Multiple files upload to Cloudinary
+router.post(
+  "/multiple",
+  protect,
+  upload.array("files", 5),
+  async (req, res) => {
+    try {
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: "No files uploaded" });
+      }
 
-    // Return array of file URLs
-    const urls = req.files.map((file) => `/uploads/${file.filename}`);
-    res.json({
-      message: "Files uploaded successfully",
-      urls: urls,
-      count: req.files.length,
-    });
+      const uploadPromises = req.files.map(async (file) => {
+        const b64 = Buffer.from(file.buffer).toString("base64");
+        const dataURI = `data:${file.mimetype};base64,${b64}`;
+
+        return cloudinary.uploader.upload(dataURI, {
+          folder: "at-eaze",
+          resource_type: "auto",
+          transformation: [
+            { width: 800, height: 600, crop: "limit" },
+            { quality: "auto" },
+          ],
+        });
+      });
+
+      const results = await Promise.all(uploadPromises);
+      const urls = results.map((result) => result.secure_url);
+
+      res.json({
+        message: "Files uploaded successfully",
+        urls: urls,
+        count: req.files.length,
+      });
+    } catch (error) {
+      console.error("Cloudinary upload error:", error);
+      res.status(500).json({ message: "Error uploading files to cloud" });
+    }
+  }
+);
+
+// Delete file from Cloudinary
+router.delete("/:public_id", protect, async (req, res) => {
+  try {
+    const { public_id } = req.params;
+
+    const result = await cloudinary.uploader.destroy(public_id);
+
+    if (result.result === "ok") {
+      res.json({ message: "File deleted successfully" });
+    } else {
+      res.status(400).json({ message: "Failed to delete file" });
+    }
   } catch (error) {
-    res.status(500).json({ message: "Error uploading files" });
+    console.error("Cloudinary delete error:", error);
+    res.status(500).json({ message: "Error deleting file" });
   }
 });
 
