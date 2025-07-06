@@ -6,6 +6,9 @@ const Product = require("../models/Product");
 const Order = require("../models/Order");
 const { protect, authorize } = require("../middlewares/auth");
 
+// Seller Application Model (we'll create this)
+const SellerApplication = require("../models/SellerApplication");
+
 // Get vendor profile
 router.get("/profile", [protect, authorize("vendor")], async (req, res) => {
   try {
@@ -171,6 +174,119 @@ router.get("/orders", [protect, authorize("vendor")], async (req, res) => {
       orders,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Submit seller application
+router.post(
+  "/applications",
+  [
+    protect,
+    body("name")
+      .trim()
+      .isLength({ min: 2 })
+      .withMessage("Name must be at least 2 characters"),
+    body("email")
+      .isEmail()
+      .normalizeEmail()
+      .withMessage("Please enter a valid email address"),
+    body("phone")
+      .trim()
+      .isLength({ min: 10 })
+      .withMessage("Please enter a valid phone number"),
+    body("businessName")
+      .trim()
+      .isLength({ min: 2 })
+      .withMessage("Business name must be at least 2 characters"),
+    body("category")
+      .trim()
+      .notEmpty()
+      .withMessage("Please select a primary category"),
+    body("experience")
+      .trim()
+      .notEmpty()
+      .withMessage("Please select your experience level"),
+    body("description")
+      .trim()
+      .isLength({ min: 20 })
+      .withMessage("Description must be at least 20 characters"),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      // Check if user already has a pending or approved application
+      const existingApplication = await SellerApplication.findOne({
+        user: req.user.id,
+        status: { $in: ["pending", "approved"] },
+      });
+
+      if (existingApplication) {
+        return res.status(400).json({
+          message: "You already have a pending or approved seller application",
+        });
+      }
+
+      // Create new seller application
+      const application = new SellerApplication({
+        user: req.user.id,
+        name: req.body.name,
+        email: req.body.email,
+        phone: req.body.phone,
+        businessName: req.body.businessName,
+        website: req.body.website,
+        category: req.body.category,
+        experience: req.body.experience,
+        description: req.body.description,
+        images: req.body.images || [],
+        submittedAt: req.body.submittedAt || new Date(),
+        status: "pending",
+      });
+
+      await application.save();
+
+      res.status(201).json({
+        message: "Seller application submitted successfully",
+        application: {
+          id: application._id,
+          status: application.status,
+          submittedAt: application.submittedAt,
+        },
+      });
+    } catch (error) {
+      console.error("Seller application error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// Get seller application status (for users to check their application)
+router.get("/applications/status", protect, async (req, res) => {
+  try {
+    const application = await SellerApplication.findOne({
+      user: req.user.id,
+    }).sort("-submittedAt");
+
+    if (!application) {
+      return res.status(404).json({
+        message: "No seller application found",
+      });
+    }
+
+    res.json({
+      application: {
+        id: application._id,
+        status: application.status,
+        submittedAt: application.submittedAt,
+        reviewedAt: application.reviewedAt,
+        feedback: application.feedback,
+      },
     });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
