@@ -17,7 +17,6 @@ export async function fetchProductById(id) {
 export async function uploadFile(file, type = "image") {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("type", type);
 
   const token = localStorage.getItem("token");
 
@@ -42,7 +41,6 @@ export async function uploadMultipleFiles(files, type = "image") {
   files.forEach((file) => {
     formData.append(`files`, file);
   });
-  formData.append("type", type);
 
   const token = localStorage.getItem("token");
 
