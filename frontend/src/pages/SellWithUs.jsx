@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import FileUpload from "@/components/ui/file-upload";
+import { uploadMultipleFiles } from "@/lib/api";
 
 const sellerFormSchema = z.object({
   name: z.string().min(2, {
@@ -59,6 +60,7 @@ const sellerFormSchema = z.object({
 const SellWithUs = () => {
   const { toast } = useToast();
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(sellerFormSchema),
@@ -73,16 +75,84 @@ const SellWithUs = () => {
     },
   });
 
-  function onSubmit(data) {
-    console.log(data);
-    console.log("Uploaded files:", uploadedFiles);
-    // In a real app, this would send the data to your backend
-    toast({
-      title: "Application submitted!",
-      description: "We'll review your application and get back to you soon.",
-    });
-    form.reset();
-    setUploadedFiles([]);
+  async function onSubmit(data) {
+    try {
+      setIsSubmitting(true);
+      // Show loading state
+      toast({
+        title: "Submitting application...",
+        description: "Please wait while we process your application.",
+      });
+
+      let imageUrls = [];
+
+      // Upload files if any are selected
+      if (uploadedFiles.length > 0) {
+        try {
+          const uploadResult = await uploadMultipleFiles(
+            uploadedFiles,
+            "seller-application"
+          );
+          imageUrls = uploadResult.urls;
+        } catch (error) {
+          toast({
+            title: "Upload Error",
+            description: `Failed to upload images: ${error.message}`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // Prepare application data with uploaded image URLs
+      const applicationData = {
+        ...data,
+        images: imageUrls,
+        submittedAt: new Date().toISOString(),
+      };
+
+      // Submit application to backend
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+        }/vendors/applications`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(applicationData),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to submit application");
+      }
+
+      // Success
+      toast({
+        title: "Application submitted successfully!",
+        description:
+          "We'll review your application and get back to you within 2-3 business days.",
+      });
+
+      // Reset form
+      form.reset();
+      setUploadedFiles([]);
+    } catch (error) {
+      console.error("Application submission error:", error);
+      toast({
+        title: "Submission failed",
+        description:
+          error.message || "Failed to submit application. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -370,8 +440,8 @@ const SellWithUs = () => {
                     />
 
                     <div className="flex justify-end">
-                      <Button type="submit" size="lg">
-                        Submit Application
+                      <Button type="submit" size="lg" disabled={isSubmitting}>
+                        {isSubmitting ? "Submitting..." : "Submit Application"}
                       </Button>
                     </div>
                   </form>
