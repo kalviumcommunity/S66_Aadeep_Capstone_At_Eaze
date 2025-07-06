@@ -5,8 +5,9 @@ const User = require("../models/User");
 const Product = require("../models/Product");
 const Order = require("../models/Order");
 const { protect, authorize } = require("../middlewares/auth");
+const { handleError } = require("../utils/errorHandler");
 
-// Seller Application Model (we'll create this)
+// Seller Application Model
 const SellerApplication = require("../models/SellerApplication");
 
 // Get vendor profile
@@ -21,7 +22,7 @@ router.get("/profile", [protect, authorize("vendor")], async (req, res) => {
 
     res.json(vendor);
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    handleError(error, req, res, "fetch vendor profile");
   }
 });
 
@@ -72,7 +73,7 @@ router.put(
 
       res.json(vendorData);
     } catch (error) {
-      res.status(500).json({ message: "Server error" });
+      handleError(error, req, res, "update vendor profile");
     }
   }
 );
@@ -122,7 +123,7 @@ router.get("/stats", [protect, authorize("vendor")], async (req, res) => {
       averageRating: stats[3][0]?.averageRating || 0,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    handleError(error, req, res, "fetch vendor statistics");
   }
 });
 
@@ -145,7 +146,7 @@ router.get("/products", [protect, authorize("vendor")], async (req, res) => {
       currentPage: page,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    handleError(error, req, res, "fetch vendor products");
   }
 });
 
@@ -176,7 +177,7 @@ router.get("/orders", [protect, authorize("vendor")], async (req, res) => {
       currentPage: page,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    handleError(error, req, res, "fetch vendor orders");
   }
 });
 
@@ -260,8 +261,31 @@ router.post(
         },
       });
     } catch (error) {
-      console.error("Seller application error:", error);
-      res.status(500).json({ message: "Server error" });
+      console.error("Seller application error:", {
+        error: error.message,
+        stack: error.stack,
+        userId: req.user?.id,
+        endpoint: "/vendors/applications",
+        method: "POST",
+      });
+
+      // Provide more specific error messages for common issues
+      if (error.name === "ValidationError") {
+        return res.status(400).json({
+          message: "Validation error",
+          details: Object.values(error.errors).map((err) => err.message),
+        });
+      }
+
+      if (error.code === 11000) {
+        return res.status(409).json({
+          message: "Application already exists for this user",
+        });
+      }
+
+      res.status(500).json({
+        message: "Failed to submit seller application. Please try again.",
+      });
     }
   }
 );
@@ -289,7 +313,7 @@ router.get("/applications/status", protect, async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    handleError(error, req, res, "fetch seller application status");
   }
 });
 
