@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: at-eaze-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: at-eaze
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - at-eaze-network
+
+  # Backend API (Development)
+  backend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: at-eaze-backend-dev
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/at-eaze?authSource=admin
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - GOOGLE_CLIENT_ID=your-google-client-id
+      - RAZORPAY_KEY_ID=your-razorpay-key-id
+      - RAZORPAY_KEY_SECRET=your-razorpay-key-secret
+      - CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
+      - CLOUDINARY_API_KEY=your-cloudinary-api-key
+      - CLOUDINARY_API_SECRET=your-cloudinary-api-secret
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
+    networks:
+      - at-eaze-network
+    profiles:
+      - dev
+
+  # Backend API (Production)
+  backend-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: at-eaze-backend-prod
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/at-eaze?authSource=admin
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - GOOGLE_CLIENT_ID=your-google-client-id
+      - RAZORPAY_KEY_ID=your-razorpay-key-id
+      - RAZORPAY_KEY_SECRET=your-razorpay-key-secret
+      - CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
+      - CLOUDINARY_API_KEY=your-cloudinary-api-key
+      - CLOUDINARY_API_SECRET=your-cloudinary-api-secret
+    depends_on:
+      - mongodb
+    networks:
+      - at-eaze-network
+    profiles:
+      - prod
+
+  # MongoDB Express (Optional - for database management)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: at-eaze-mongo-express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: password123
+      ME_CONFIG_MONGODB_URL: mongodb://admin:password123@mongodb:27017/
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: password123
+    depends_on:
+      - mongodb
+    networks:
+      - at-eaze-network
+    profiles:
+      - dev
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  at-eaze-network:
+    driver: bridge 
