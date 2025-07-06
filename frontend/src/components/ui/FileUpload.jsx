@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Upload, X, Image as ImageIcon, AlertCircle } from "lucide-react";
 import { Button } from "./button";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,37 @@ const FileUpload = ({
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [errors, setErrors] = useState([]);
+  const [previewUrls, setPreviewUrls] = useState({});
   const fileInputRef = useRef(null);
+
+  // Manage object URL lifecycle to prevent memory leaks
+  useEffect(() => {
+    const currentUrls = new Set(Object.values(previewUrls));
+    const newUrls = new Set();
+
+    // Create new object URLs for image files
+    value.forEach((file, index) => {
+      if (file.type.startsWith("image/")) {
+        const url = URL.createObjectURL(file);
+        newUrls.add(url);
+        setPreviewUrls((prev) => ({ ...prev, [index]: url }));
+      }
+    });
+
+    // Revoke old URLs that are no longer needed
+    currentUrls.forEach((url) => {
+      if (!newUrls.has(url)) {
+        URL.revokeObjectURL(url);
+      }
+    });
+
+    // Cleanup function to revoke all URLs when component unmounts
+    return () => {
+      Object.values(previewUrls).forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+    };
+  }, [value]); // Re-run when value (files) changes
 
   const validateFile = (file) => {
     const errors = [];
@@ -109,11 +139,8 @@ const FileUpload = ({
     onChange(newValue);
   };
 
-  const getFilePreview = (file) => {
-    if (file.type.startsWith("image/")) {
-      return URL.createObjectURL(file);
-    }
-    return null;
+  const getFilePreview = (index) => {
+    return previewUrls[index] || null;
   };
 
   const formatFileSize = (bytes) => {
@@ -188,13 +215,13 @@ const FileUpload = ({
       {value.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {value.map((file, index) => {
-            const preview = getFilePreview(file);
+            const preview = getFilePreview(index);
             return (
               <div
                 key={index}
                 className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 group"
               >
-                {preview ? (
+                {file.type.startsWith("image/") && preview ? (
                   <img
                     src={preview}
                     alt={`Preview ${index + 1}`}
