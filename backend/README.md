@@ -55,6 +55,12 @@ Backend for At Eaze - A Multi-Vendor E-Commerce Platform for Handmade Gifts.
 - GET `/api/vendors/products` - Get vendor products
 - GET `/api/vendors/orders` - Get vendor orders
 
+### File Upload (Cloudinary)
+
+- POST `/api/upload` - Upload single image
+- POST `/api/upload/multiple` - Upload multiple images
+- DELETE `/api/upload/:public_id` - Delete image from cloud
+
 ## Setup
 
 1. Install dependencies:
@@ -72,6 +78,12 @@ JWT_SECRET=your_jwt_secret_key_here
 GOOGLE_CLIENT_ID=your_google_client_id_here
 RAZORPAY_KEY_ID=your_razorpay_key_id_here
 RAZORPAY_KEY_SECRET=your_razorpay_key_secret_here
+
+# Cloudinary Configuration (Free image hosting)
+# Sign up at https://cloudinary.com/ for free account
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
 3. Start development server:
@@ -88,3 +100,6 @@ npm run dev
 - `GOOGLE_CLIENT_ID` - Google OAuth client ID
 - `RAZORPAY_KEY_ID` - Razorpay API key ID
 - `RAZORPAY_KEY_SECRET` - Razorpay API key secret
+- `CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name
+- `CLOUDINARY_API_KEY` - Cloudinary API key
+- `CLOUDINARY_API_SECRET` - Cloudinary API secret
