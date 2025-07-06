@@ -42,15 +42,15 @@ const Login = () => {
   const onSubmit = async (values) => {
     try {
       setIsLoading(true);
-      await loginUser(values);
+      const userData = await loginUser(values);
 
       toast({
         title: "Login successful",
         description: "Welcome back!",
       });
 
-      // Redirect based on user role
-      const userRole = localStorage.getItem("userRole");
+      // Redirect based on user role from the returned data
+      const userRole = userData.user?.role || userData.role;
       if (userRole === "vendor") {
         navigate("/seller/dashboard");
       } else if (userRole === "admin") {
@@ -163,9 +163,9 @@ const Login = () => {
 
             <GoogleOAuth
               mode="login"
-              onSuccess={() => {
-                // Redirect based on user role
-                const userRole = localStorage.getItem("userRole");
+              onSuccess={(userData) => {
+                // Redirect based on user role from the returned data
+                const userRole = userData?.user?.role || userData?.role;
                 if (userRole === "vendor") {
                   navigate("/seller/dashboard");
                 } else if (userRole === "admin") {

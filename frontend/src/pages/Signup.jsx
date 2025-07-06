@@ -256,9 +256,16 @@ const Signup = () => {
 
             <GoogleOAuth
               mode="signup"
-              onSuccess={() => {
-                // Redirect based on account type
-                navigate("/");
+              onSuccess={(userData) => {
+                // Redirect based on user role from the returned data
+                const userRole = userData?.user?.role || userData?.role;
+                if (userRole === "vendor") {
+                  navigate("/seller/dashboard");
+                } else if (userRole === "admin") {
+                  navigate("/admin/dashboard");
+                } else {
+                  navigate("/");
+                }
               }}
             />
           </form>
