@@ -18,20 +18,19 @@ const GoogleOAuth = ({ mode = "login", onSuccess, className = "" }) => {
         await loadGoogleScript();
       }
 
-      // Initialize Google OAuth
-      const client = window.google.accounts.oauth2.initTokenClient({
+      // Initialize Google Sign-In
+      window.google.accounts.id.initialize({
         client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-        scope: "email profile",
         callback: async (response) => {
           try {
             if (response.error) {
-              throw new Error("Google OAuth failed");
+              throw new Error("Google Sign-In failed");
             }
 
-            // Exchange authorization code for ID token
-            const idToken = await exchangeCodeForToken(response.code);
+            // response.credential contains the ID token (JWT)
+            const idToken = response.credential;
 
-            // Authenticate with our backend
+            // Authenticate with our backend using the ID token
             await googleLogin(idToken);
 
             toast({
@@ -43,7 +42,7 @@ const GoogleOAuth = ({ mode = "login", onSuccess, className = "" }) => {
               onSuccess();
             }
           } catch (error) {
-            console.error("Google OAuth error:", error);
+            console.error("Google Sign-In error:", error);
             toast({
               title: "Authentication failed",
               description:
@@ -56,12 +55,13 @@ const GoogleOAuth = ({ mode = "login", onSuccess, className = "" }) => {
         },
       });
 
-      client.requestAccessToken();
+      // Prompt the user to sign in
+      window.google.accounts.id.prompt();
     } catch (error) {
-      console.error("Google OAuth setup error:", error);
+      console.error("Google Sign-In setup error:", error);
       toast({
         title: "Authentication failed",
-        description: "Failed to initialize Google OAuth",
+        description: "Failed to initialize Google Sign-In",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -83,13 +83,6 @@ const GoogleOAuth = ({ mode = "login", onSuccess, className = "" }) => {
       script.onerror = reject;
       document.head.appendChild(script);
     });
-  };
-
-  const exchangeCodeForToken = async (code) => {
-    // In a production app, you'd exchange the authorization code for an ID token
-    // For now, we'll use the authorization code directly (simplified approach)
-    // In a real implementation, you'd make a server-side call to Google's token endpoint
-    return code;
   };
 
   return (
