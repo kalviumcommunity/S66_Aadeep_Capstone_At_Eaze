@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const { protect } = require("../middlewares/auth");
+const { handleError } = require("../utils/errorHandler");
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -54,7 +55,7 @@ router.post(
         },
       });
     } catch (error) {
-      res.status(500).json({ message: "Server error" });
+      handleError(error, req, res, "user registration");
     }
   }
 );
@@ -99,7 +100,7 @@ router.post(
         },
       });
     } catch (error) {
-      res.status(500).json({ message: "Server error" });
+      handleError(error, req, res, "user login");
     }
   }
 );
@@ -108,6 +109,11 @@ router.post(
 router.post("/google", async (req, res) => {
   try {
     const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ message: "Google token is required" });
+    }
+
     const ticket = await client.verifyIdToken({
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -117,11 +123,20 @@ router.post("/google", async (req, res) => {
 
     let user = await User.findOne({ email });
     if (!user) {
+      // Create new user with Google OAuth data
       user = new User({
         name,
         email,
         googleId,
+        avatar: picture,
+        isEmailVerified: true, // Google emails are verified
       });
+      await user.save();
+    } else if (!user.googleId) {
+      // Link existing user account with Google
+      user.googleId = googleId;
+      user.avatar = picture;
+      user.isEmailVerified = true;
       await user.save();
     }
 
@@ -136,10 +151,11 @@ router.post("/google", async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        avatar: user.avatar,
       },
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    handleError(error, req, res, "Google OAuth authentication");
   }
 });
 
@@ -147,9 +163,23 @@ router.post("/google", async (req, res) => {
 router.get("/me", protect, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
     res.json(user);
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    handleError(error, req, res, "fetch user profile");
+  }
+});
+
+// Logout (optional - client-side token removal is sufficient)
+router.post("/logout", protect, async (req, res) => {
+  try {
+    // In a more advanced setup, you might want to blacklist the token
+    // For now, we'll just return success as the client removes the token
+    res.json({ message: "Logged out successfully" });
+  } catch (error) {
+    handleError(error, req, res, "user logout");
   }
 });
 
