@@ -31,6 +31,13 @@ const userSchema = new mongoose.Schema({
     type: String,
     sparse: true,
   },
+  avatar: {
+    type: String,
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false,
+  },
   isVendor: {
     type: Boolean,
     default: false,
